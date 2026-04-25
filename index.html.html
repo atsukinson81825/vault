@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Vault">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#fff5f9">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='url(%23g)'/><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23f472b6'/><stop offset='1' stop-color='%23c084fc'/></linearGradient></defs><text y='.9em' font-size='65' x='15'>🔐</text></svg>">
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Vault%20%E2%80%94%20%E3%83%91%E3%82%B9%E3%83%AF%E3%83%BC%E3%83%89%E7%AE%A1%E7%90%86%22%2C%22short_name%22%3A%22Vault%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23fff5f9%22%2C%22theme_color%22%3A%22%23f472b6%22%2C%22start_url%22%3A%22.%22%7D">
+<title>🔐 Vault — パスワード管理</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fff5f9;
+    --surface: #ffffff;
+    --surface2: #fef0f6;
+    --border: #f0c8dd;
+    --accent: #f472b6;
+    --accent2: #c084fc;
+    --accent-soft: #fce7f3;
+    --danger: #fb7185;
+    --text: #4a2040;
+    --text-muted: #b07090;
+    --mint: #6ee7b7;
+    --sky: #93c5fd;
+    --yellow: #fde68a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Polka dot background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, #f9a8d4 1.5px, transparent 1.5px);
+    background-size: 28px 28px;
+    opacity: 0.25;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 28px 16px;
+    padding-top: calc(28px + env(safe-area-inset-top));
+    padding-left: calc(16px + env(safe-area-inset-left));
+    padding-right: calc(16px + env(safe-area-inset-right));
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 2px dashed var(--border);
+  }
+
+  .logo {
+    font-family: 'Nunito', sans-serif;
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .logo span {
+    color: var(--text-muted);
+    font-size: 11px;
+    display: block;
+    letter-spacing: 3px;
+    margin-top: -4px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    -webkit-text-fill-color: var(--text-muted);
+  }
+
+  .entry-count {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-align: right;
+  }
+
+  .entry-count strong {
+    display: block;
+    font-size: 32px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+  }
+
+  /* Search & controls */
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .search-wrap {
+    flex: 1;
+    position: relative;
+  }
+
+  .search-wrap::before {
+    content: '🔍';
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+  }
+
+  input[type="text"], input[type="password"], input[type="url"] {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    color: var(--text);
+    border-radius: 50px;
+    padding: 11px 18px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    width: 100%;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+
+  input[type="text"]:focus, input[type="password"]:focus, input[type="url"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(244,114,182,0.15);
+  }
+
+  .search-wrap input {
+    padding-left: 42px;
+  }
+
+  .btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 11px 22px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    box-shadow: 0 4px 14px rgba(244,114,182,0.35);
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(244,114,182,0.5);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 2px solid var(--border);
+    box-shadow: none;
+  }
+
+  .btn-ghost:hover {
+    background: var(--surface2);
+    color: var(--accent);
+    border-color: var(--accent);
+    box-shadow: none;
+  }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border: none;
+    padding: 5px 10px;
+    font-size: 12px;
+    box-shadow: none;
+  }
+
+  .btn-danger:hover {
+    background: #fff0f2;
+    box-shadow: none;
+    transform: none;
+    border-radius: 8px;
+  }
+
+  /* Category tabs */
+  .categories {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .cat-tab {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 50px;
+    padding: 5px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Nunito', sans-serif;
+  }
+
+  .cat-tab.active, .cat-tab:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  /* Entries grid */
+  .entries {
+    display: grid;
+    gap: 12px;
+  }
+
+  .entry-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 20px;
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: 52px 1fr auto;
+    gap: 14px;
+    align-items: center;
+    transition: all 0.2s;
+    animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 2px 12px rgba(244,114,182,0.08);
+  }
+
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.92) translateY(6px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .entry-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 6px 24px rgba(244,114,182,0.18);
+    transform: translateY(-2px);
+  }
+
+  .entry-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: var(--accent-soft);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    overflow: hidden;
+  }
+
+  .entry-icon img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 6px;
+  }
+
+  .entry-info { overflow: hidden; }
+
+  .entry-site {
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+  }
+
+  .entry-id {
+    font-family: 'Nunito', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .entry-pass {
+    font-family: 'Nunito', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: color 0.2s;
+    user-select: none;
+  }
+
+  .entry-pass.visible {
+    color: var(--accent);
+    letter-spacing: 0.5px;
+  }
+
+  .entry-pass:hover { color: var(--accent); }
+
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 10px;
+    border-radius: 50px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
+  .tag-sns { background: #ede9fe; color: #7c3aed; }
+  .tag-bank { background: #fef9c3; color: #a16207; }
+  .tag-work { background: #e0f2fe; color: #0369a1; }
+  .tag-shop { background: #ffedd5; color: #c2410c; }
+  .tag-default { background: var(--accent-soft); color: var(--accent); }
+
+  .entry-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+  }
+
+  .copy-btn {
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 50px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Nunito', sans-serif;
+    white-space: nowrap;
+  }
+
+  .copy-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .copy-btn.copied {
+    border-color: var(--mint);
+    color: #059669;
+    background: #ecfdf5;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(244,114,182,0.15);
+    backdrop-filter: blur(6px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 24px;
+    padding: 28px;
+    width: 100%;
+    max-width: 480px;
+    transform: scale(0.92) translateY(16px);
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 20px 60px rgba(244,114,182,0.2);
+  }
+
+  .modal-overlay.open .modal {
+    transform: scale(1) translateY(0);
+  }
+
+  .modal h2 {
+    font-family: 'Nunito', sans-serif;
+    font-size: 20px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 22px;
+  }
+
+  .form-group {
+    margin-bottom: 14px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+    font-family: 'Nunito', sans-serif;
+    letter-spacing: 0.5px;
+  }
+
+  .pass-input-wrap {
+    position: relative;
+  }
+
+  .pass-input-wrap input { padding-right: 44px; }
+
+  .toggle-pass {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px;
+  }
+
+  .toggle-pass:hover { color: var(--accent); }
+
+  select {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    color: var(--text);
+    border-radius: 50px;
+    padding: 11px 18px;
+    width: 100%;
+    font-size: 14px;
+    font-family: 'Noto Sans JP', sans-serif;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(244,114,182,0.15);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+    justify-content: flex-end;
+  }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+
+  .empty .icon { font-size: 52px; margin-bottom: 14px; }
+  .empty p { font-size: 14px; line-height: 2; font-family: 'Nunito', sans-serif; font-weight: 600; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    padding: 12px 22px;
+    border-radius: 50px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    z-index: 200;
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+    box-shadow: 0 4px 20px rgba(244,114,182,0.25);
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  /* Notice */
+  .notice {
+    background: #fdf4ff;
+    border: 2px dashed #e9b6f5;
+    border-radius: 16px;
+    padding: 10px 16px;
+    font-size: 12px;
+    color: #9333ea;
+    margin-bottom: 22px;
+    line-height: 1.7;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+  }
+
+  .notice strong { color: #7c3aed; }
+
+
+  /* Drive sync bar */
+  .drive-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 10px 18px;
+    margin-bottom: 18px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .drive-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+
+  .drive-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #d1d5db;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .drive-dot.connected { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+  .drive-dot.syncing { background: #f59e0b; animation: pulse 1s infinite; }
+  .drive-dot.error { background: var(--danger); }
+
+  @keyframes pulse {
+    0%,100% { opacity:1; } 50% { opacity:0.4; }
+  }
+
+  .drive-actions { display: flex; gap: 8px; align-items: center; }
+
+  .drive-btn {
+    background: white;
+    border: 2px solid var(--border);
+    color: var(--text);
+    border-radius: 50px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Nunito', sans-serif;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .drive-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .drive-btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; border-color: transparent; }
+  .drive-btn.primary:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(244,114,182,0.35); }
+
+  /* Client ID setup modal */
+  .setup-box {
+    background: #fdf4ff;
+    border: 2px dashed #e9b6f5;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font-size: 12px;
+    line-height: 1.8;
+    color: #7c3aed;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+  }
+
+  .setup-box a { color: var(--accent); }
+  .setup-box ol { margin: 6px 0 0 18px; }
+
+  @media (max-width: 600px) {
+    .entry-card { grid-template-columns: 44px 1fr; }
+    .entry-actions { display: none; }
+    .entry-card:hover .entry-actions { display: flex; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo">
+      VAULT 🔐
+      <span>パスワード管理</span>
+    </div>
+    <div class="entry-count">
+      <strong id="countNum">0</strong>
+      ENTRIES
+    </div>
+  </header>
+
+  <!-- Google Drive sync bar -->
+  <div class="drive-bar" id="driveBar">
+    <div class="drive-status">
+      <div class="drive-dot" id="driveDot"></div>
+      <span id="driveStatusText">Google Drive 未接続</span>
+    </div>
+    <div class="drive-actions">
+      <button class="drive-btn" id="driveSetupBtn" onclick="openDriveSetup()" style="display:none">⚙️ 設定</button>
+      <button class="drive-btn primary" id="driveConnectBtn" onclick="connectDrive()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+        Google でログイン
+      </button>
+      <button class="drive-btn" id="driveSyncBtn" onclick="syncNow()" style="display:none">🔄 今すぐ同期</button>
+      <button class="drive-btn" id="driveSignOutBtn" onclick="signOut()" style="display:none">ログアウト</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="サイト名、ID で検索..." oninput="render()">
+    </div>
+    <button class="btn" onclick="openModal()">＋ 追加</button>
+  </div>
+
+  <div class="categories" id="catTabs"></div>
+
+  <div class="entries" id="entriesList"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">NEW ENTRY</h2>
+    <div class="form-group">
+      <label>サイト名 *</label>
+      <input type="text" id="fSite" placeholder="例: Twitter, Amazon...">
+    </div>
+    <div class="form-group">
+      <label>URL（任意）</label>
+      <input type="url" id="fUrl" placeholder="https://example.com">
+    </div>
+    <div class="form-group">
+      <label>ID / メールアドレス *</label>
+      <input type="text" id="fId" placeholder="user@example.com">
+    </div>
+    <div class="form-group">
+      <label>パスワード *</label>
+      <div class="pass-input-wrap">
+        <input type="password" id="fPass" placeholder="パスワードを入力">
+        <button class="toggle-pass" onclick="toggleModalPass()" id="toggleBtn">👁</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>カテゴリ</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="fCat" style="flex:1"></select>
+        <button type="button" class="btn" style="padding:11px 14px;white-space:nowrap;flex-shrink:0" onclick="openCatModal()" title="カテゴリを追加">＋</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>メモ（任意）</label>
+      <input type="text" id="fNote" placeholder="備考など">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">キャンセル</button>
+      <button class="btn" onclick="saveEntry()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Category Modal -->
+<div class="modal-overlay" id="catModalOverlay">
+  <div class="modal" style="max-width:380px">
+    <h2>カテゴリ管理 🏷️</h2>
+    <div class="form-group">
+      <label>新しいカテゴリ名</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="newCatName" placeholder="例: 趣味、学校..." style="flex:1">
+        <button type="button" class="btn" style="padding:11px 16px;flex-shrink:0" onclick="addCategory()">追加</button>
+      </div>
+    </div>
+    <div style="margin-top:4px;margin-bottom:16px">
+      <label style="font-size:11px;font-weight:700;color:var(--text-muted);font-family:'Nunito',sans-serif;letter-spacing:0.5px;display:block;margin-bottom:8px">現在のカテゴリ</label>
+      <div id="catList" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeCatModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- Drive Setup Modal -->
+<div class="modal-overlay" id="driveSetupOverlay">
+  <div class="modal" style="max-width:440px">
+    <h2>Google Drive 設定 ☁️</h2>
+    <div class="setup-box">
+      <strong>Google Cloud Console で設定が必要です：</strong>
+      <ol>
+        <li><a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> を開く</li>
+        <li>新しいプロジェクトを作成</li>
+        <li>「APIとサービス」→「ライブラリ」で <strong>Google Drive API</strong> を有効化</li>
+        <li>「認証情報」→「OAuth 2.0 クライアントID」を作成（種類：ウェブアプリ）</li>
+        <li>承認済みの JavaScript 生成元にこのページの URL を追加</li>
+        <li>クライアント ID を下に貼り付け</li>
+      </ol>
+    </div>
+    <div class="form-group">
+      <label>Google OAuth クライアント ID</label>
+      <input type="text" id="clientIdInput" placeholder="xxxxx.apps.googleusercontent.com">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDriveSetup()">キャンセル</button>
+      <button class="btn" onclick="saveClientId()">保存して接続</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let entries = JSON.parse(localStorage.getItem('vault_entries') || '[]');
+let editId = null;
+let activeCategory = 'すべて';
+let visiblePassIds = new Set();
+
+const DEFAULT_CATS = ['SNS', '銀行', '仕事', 'ショッピング', 'エンタメ', 'ゲーム'];
+let customCats = JSON.parse(localStorage.getItem('vault_custom_cats') || '[]');
+
+function getAllCategories() {
+  // Merge defaults + custom, dedupe, always put その他 last
+  const all = [...DEFAULT_CATS, ...customCats.filter(c => !DEFAULT_CATS.includes(c))];
+  return [...all, 'その他'];
+}
+
+const CATEGORY_ICONS = {
+  'SNS': '💬', '銀行': '🏦', '仕事': '💼',
+  'ショッピング': '🛍', 'エンタメ': '🎬', 'ゲーム': '🎮', 'その他': '🔑'
+};
+
+const CATEGORY_TAGS = {
+  'SNS': 'tag-sns', '銀行': 'tag-bank', '仕事': 'tag-work',
+  'ショッピング': 'tag-shop'
+};
+
+function save() {
+  localStorage.setItem('vault_entries', JSON.stringify(entries));
+}
+
+function saveCustomCats() {
+  localStorage.setItem('vault_custom_cats', JSON.stringify(customCats));
+}
+
+function getFavicon(url) {
+  try {
+    const u = new URL(url);
+    return `https://www.google.com/s2/favicons?sz=64&domain=${u.hostname}`;
+  } catch { return null; }
+}
+
+function getIcon(entry) {
+  const fav = entry.url ? getFavicon(entry.url) : null;
+  if (fav) {
+    return `<img src="${fav}" onerror="this.parentElement.innerHTML='${CATEGORY_ICONS[entry.category]||'🔑'}'">`;
+  }
+  return CATEGORY_ICONS[entry.category] || '🔑';
+}
+
+function getCategories() {
+  // Used categories from entries, sorted by master list order, その他 always last
+  const used = new Set(entries.map(e => e.category));
+  const master = getAllCategories();
+  const ordered = master.filter(c => used.has(c));
+  return ['すべて', ...ordered];
+}
+
+function populateCatSelect(currentVal) {
+  const sel = document.getElementById('fCat');
+  sel.innerHTML = getAllCategories().map(c =>
+    `<option value="${c}"${c === currentVal ? ' selected' : ''}>${c}</option>`
+  ).join('');
+}
+
+function openCatModal() {
+  renderCatList();
+  document.getElementById('catModalOverlay').classList.add('open');
+  document.getElementById('newCatName').value = '';
+  setTimeout(() => document.getElementById('newCatName').focus(), 100);
+}
+
+function closeCatModal() {
+  document.getElementById('catModalOverlay').classList.remove('open');
+  // Refresh select in main modal
+  const cur = document.getElementById('fCat').value;
+  populateCatSelect(cur);
+}
+
+function renderCatList() {
+  const all = getAllCategories();
+  document.getElementById('catList').innerHTML = all.map(c => {
+    const isDefault = DEFAULT_CATS.includes(c) || c === 'その他';
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent-soft);border:2px solid var(--border);border-radius:50px;padding:4px 12px;font-size:12px;font-family:'Nunito',sans-serif;font-weight:700;color:var(--text)">
+      ${c}
+      ${!isDefault ? `<button onclick="deleteCategory('${c}')" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:14px;line-height:1;padding:0 0 0 2px" title="削除">×</button>` : ''}
+    </span>`;
+  }).join('');
+}
+
+function addCategory() {
+  const name = document.getElementById('newCatName').value.trim();
+  if (!name) return;
+  if (getAllCategories().includes(name)) {
+    showToast('同じ名前のカテゴリが既にあります', true);
+    return;
+  }
+  customCats.push(name);
+  saveCustomCats();
+  document.getElementById('newCatName').value = '';
+  renderCatList();
+  showToast(`「${name}」を追加しました ✓`);
+}
+
+function deleteCategory(name) {
+  if (entries.some(e => e.category === name)) {
+    if (!confirm(`「${name}」を使っているエントリがあります。削除しますか？（エントリは「その他」に変更されます）`)) return;
+    entries = entries.map(e => e.category === name ? {...e, category: 'その他'} : e);
+    save();
+  }
+  customCats = customCats.filter(c => c !== name);
+  saveCustomCats();
+  renderCatList();
+  showToast(`「${name}」を削除しました`);
+}
+
+function renderCats() {
+  const cats = getCategories();
+  document.getElementById('catTabs').innerHTML = cats.map(c =>
+    `<button class="cat-tab${c===activeCategory?' active':''}" onclick="setCategory('${c}')">${c}</button>`
+  ).join('');
+}
+
+function setCategory(cat) {
+  activeCategory = cat;
+  render();
+}
+
+function getFiltered() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  return entries.filter(e => {
+    const matchCat = activeCategory === 'すべて' || e.category === activeCategory;
+    const matchQ = !q || e.site.toLowerCase().includes(q) || e.id.toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+}
+
+function render() {
+  renderCats();
+  const filtered = getFiltered();
+  document.getElementById('countNum').textContent = entries.length;
+  
+  if (filtered.length === 0) {
+    document.getElementById('entriesList').innerHTML = `
+      <div class="empty">
+        <div class="icon">🔐</div>
+        <p>${entries.length === 0 ? '「＋ 追加」ボタンでアカウントを登録しましょう' : '検索結果が見つかりませんでした'}</p>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('entriesList').innerHTML = filtered.map(e => {
+    const visible = visiblePassIds.has(e.id);
+    const tagClass = CATEGORY_TAGS[e.category] || 'tag-default';
+    const passDisplay = visible ? e.pass : '••••••••';
+
+    return `
+    <div class="entry-card">
+      <div class="entry-icon">${getIcon(e)}</div>
+      <div class="entry-info">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div class="entry-site">${escHtml(e.site)}</div>
+          <span class="tag ${tagClass}">${e.category}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;letter-spacing:1px;min-width:18px">ID</span>
+          <span class="entry-id" style="margin:0;flex:1">${escHtml(e.id)}</span>
+          <button class="copy-btn" onclick="copyId('${e.id}',this)">コピー</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;letter-spacing:1px;min-width:18px">PW</span>
+          <span class="entry-pass${visible?' visible':''}" onclick="togglePass('${e.id}')" title="クリックで表示/非表示" style="flex:1">${passDisplay}</span>
+          <button class="copy-btn" onclick="copyPass('${e.id}',this)">コピー</button>
+        </div>
+        ${e.note ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">${escHtml(e.note)}</div>` : ''}
+      </div>
+      <div class="entry-actions">
+        <button class="copy-btn" onclick="editEntry('${e.id}')">編集</button>
+        <button class="btn btn-danger" onclick="deleteEntry('${e.id}')">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function togglePass(id) {
+  if (visiblePassIds.has(id)) visiblePassIds.delete(id);
+  else visiblePassIds.add(id);
+  render();
+}
+
+async function copyToClipboard(text, btn, label) {
+  try {
+    await navigator.clipboard.writeText(text);
+    const orig = btn.textContent;
+    btn.textContent = '✓ コピー済';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+    showToast(`${label}をコピーしました`);
+  } catch { showToast('コピーに失敗しました'); }
+}
+
+function copyId(id, btn) {
+  const e = entries.find(x => x.id === id);
+  if (e) copyToClipboard(e.id, btn, 'ID');
+}
+
+function copyPass(id, btn) {
+  const e = entries.find(x => x.id === id);
+  if (e) copyToClipboard(e.pass, btn, 'パスワード');
+}
+
+function openModal(id = null) {
+  editId = id;
+  const overlay = document.getElementById('modalOverlay');
+  document.getElementById('modalTitle').textContent = id ? 'EDIT ENTRY' : 'NEW ENTRY';
+  
+  if (id) {
+    const e = entries.find(x => x.id === id);
+    document.getElementById('fSite').value = e.site;
+    document.getElementById('fUrl').value = e.url || '';
+    document.getElementById('fId').value = e.id_val || e.id;
+    document.getElementById('fPass').value = e.pass;
+    populateCatSelect(e.category);
+    document.getElementById('fNote').value = e.note || '';
+  } else {
+    ['fSite','fUrl','fId','fPass','fNote'].forEach(f => document.getElementById(f).value = '');
+    populateCatSelect('その他');
+  }
+  
+  // Reset pass type
+  document.getElementById('fPass').type = 'password';
+  overlay.classList.add('open');
+  setTimeout(() => document.getElementById('fSite').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  editId = null;
+}
+
+function toggleModalPass() {
+  const inp = document.getElementById('fPass');
+  const btn = document.getElementById('toggleBtn');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+function saveEntry() {
+  const site = document.getElementById('fSite').value.trim();
+  const id_val = document.getElementById('fId').value.trim();
+  const pass = document.getElementById('fPass').value;
+  const url = document.getElementById('fUrl').value.trim();
+  const category = document.getElementById('fCat').value;
+  const note = document.getElementById('fNote').value.trim();
+
+  if (!site || !id_val || !pass) {
+    showToast('サイト名、ID、パスワードは必須です', true);
+    return;
+  }
+
+  if (editId) {
+    const idx = entries.findIndex(e => e.id === editId);
+    if (idx !== -1) {
+      entries[idx] = { ...entries[idx], site, id_val, id: id_val, pass, url, category, note };
+    }
+  } else {
+    entries.push({
+      id: id_val,
+      id_val,
+      site, pass, url, category, note,
+      created: Date.now()
+    });
+  }
+
+  save();
+  closeModal();
+  render();
+  showToast(editId ? '更新しました ✓' : '追加しました ✓');
+}
+
+function editEntry(id) {
+  openModal(id);
+}
+
+function deleteEntry(id) {
+  const e = entries.find(x => x.id === id);
+  if (!confirm(`「${e?.site}」を削除しますか？`)) return;
+  entries = entries.filter(x => x.id !== id);
+  save();
+  render();
+  showToast('削除しました');
+}
+
+function showToast(msg, err = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = err ? 'var(--danger)' : 'var(--accent)';
+  t.style.color = err ? 'var(--danger)' : 'var(--accent)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Close modal on overlay click
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+document.getElementById('catModalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeCatModal();
+});
+
+// Enter key for new category
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('newCatName').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addCategory();
+  });
+});
+
+// Enter key in modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeCatModal(); }
+  if (e.key === 'Enter' && document.getElementById('modalOverlay').classList.contains('open')) {
+    if (e.target.tagName !== 'BUTTON') saveEntry();
+  }
+});
+
+
+// ─── Google Drive Sync ───────────────────────────────────────
+const DRIVE_FILE_NAME = 'vault-passwords.json';
+const SCOPES = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file';
+
+let gapiReady = false;
+let gisReady = false;
+let tokenClient = null;
+let driveFileId = null;
+let syncTimer = null;
+let clientId = localStorage.getItem('vault_goog_client_id') || '';
+
+function setDriveStatus(state, text) {
+  const dot = document.getElementById('driveDot');
+  const txt = document.getElementById('driveStatusText');
+  dot.className = 'drive-dot ' + state;
+  txt.textContent = text;
+}
+
+function showDriveButtons(connected) {
+  document.getElementById('driveConnectBtn').style.display = connected ? 'none' : '';
+  document.getElementById('driveSetupBtn').style.display = connected ? 'none' : '';
+  document.getElementById('driveSyncBtn').style.display = connected ? '' : 'none';
+  document.getElementById('driveSignOutBtn').style.display = connected ? '' : 'none';
+}
+
+// Override save() to also sync
+const _origSave = save;
+function save() {
+  _origSave();
+  if (gapiReady && gisReady && gapi.client.getToken()) {
+    scheduleDriveSync();
+  }
+}
+
+function scheduleDriveSync() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(uploadToDrive, 1500);
+  setDriveStatus('syncing', '同期中...');
+}
+
+async function uploadToDrive() {
+  try {
+    const data = JSON.stringify({ entries, customCats }, null, 2);
+    const metadata = { name: DRIVE_FILE_NAME, mimeType: 'application/json' };
+
+    if (!driveFileId) {
+      // Search for existing file first
+      const search = await gapi.client.drive.files.list({
+        q: `name='${DRIVE_FILE_NAME}' and trashed=false`,
+        spaces: 'drive',
+        fields: 'files(id)'
+      });
+      if (search.result.files.length > 0) {
+        driveFileId = search.result.files[0].id;
+      }
+    }
+
+    if (driveFileId) {
+      // Update existing
+      await gapi.client.request({
+        path: `/upload/drive/v3/files/${driveFileId}`,
+        method: 'PATCH',
+        params: { uploadType: 'multipart' },
+        headers: { 'Content-Type': 'multipart/related; boundary=boundary' },
+        body: `--boundary
+Content-Type: application/json
+
+${JSON.stringify(metadata)}
+--boundary
+Content-Type: application/json
+
+${data}
+--boundary--`
+      });
+    } else {
+      // Create new
+      const res = await gapi.client.request({
+        path: '/upload/drive/v3/files',
+        method: 'POST',
+        params: { uploadType: 'multipart' },
+        headers: { 'Content-Type': 'multipart/related; boundary=boundary' },
+        body: `--boundary
+Content-Type: application/json
+
+${JSON.stringify(metadata)}
+--boundary
+Content-Type: application/json
+
+${data}
+--boundary--`
+      });
+      driveFileId = res.result.id;
+    }
+
+    const now = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+    setDriveStatus('connected', `✓ 同期済み ${now}`);
+  } catch(e) {
+    console.error('Drive upload error:', e);
+    setDriveStatus('error', '同期失敗 — 再試行してください');
+  }
+}
+
+async function downloadFromDrive() {
+  try {
+    const search = await gapi.client.drive.files.list({
+      q: `name='${DRIVE_FILE_NAME}' and trashed=false`,
+      spaces: 'drive',
+      fields: 'files(id, modifiedTime)'
+    });
+
+    if (search.result.files.length === 0) {
+      // No cloud data yet, upload local
+      await uploadToDrive();
+      return;
+    }
+
+    driveFileId = search.result.files[0].id;
+    const res = await gapi.client.drive.files.get({
+      fileId: driveFileId,
+      alt: 'media'
+    });
+
+    const cloudData = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+    if (cloudData.entries) {
+      entries = cloudData.entries;
+      localStorage.setItem('vault_entries', JSON.stringify(entries));
+    }
+    if (cloudData.customCats) {
+      customCats = cloudData.customCats;
+      localStorage.setItem('vault_custom_cats', JSON.stringify(customCats));
+    }
+    render();
+    const now = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+    setDriveStatus('connected', `✓ 同期済み ${now}`);
+    showToast('☁️ Google Drive から読み込みました！');
+  } catch(e) {
+    console.error('Drive download error:', e);
+    setDriveStatus('error', '読み込み失敗');
+  }
+}
+
+function initGapi() {
+  gapi.load('client', async () => {
+    await gapi.client.init({});
+    await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
+    gapiReady = true;
+    tryAutoConnect();
+  });
+}
+
+function initGis() {
+  if (!clientId) { gisReady = true; return; }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: SCOPES,
+    callback: async (resp) => {
+      if (resp.error) { setDriveStatus('error', 'ログイン失敗'); return; }
+      showDriveButtons(true);
+      setDriveStatus('syncing', 'データを読み込み中...');
+      await downloadFromDrive();
+    }
+  });
+  gisReady = true;
+  tryAutoConnect();
+}
+
+function tryAutoConnect() {
+  if (!gapiReady || !gisReady || !clientId) return;
+  // Try silent token restore
+  const stored = localStorage.getItem('vault_goog_token');
+  if (stored) {
+    try {
+      const tok = JSON.parse(stored);
+      gapi.client.setToken(tok);
+      showDriveButtons(true);
+      setDriveStatus('syncing', '再接続中...');
+      downloadFromDrive();
+    } catch(e) { localStorage.removeItem('vault_goog_token'); }
+  }
+}
+
+function connectDrive() {
+  if (!clientId) { openDriveSetup(); return; }
+  if (!tokenClient) { initGis(); return; }
+  tokenClient.requestAccessToken({ prompt: '' });
+}
+
+function syncNow() {
+  uploadToDrive();
+  showToast('🔄 同期中...');
+}
+
+function signOut() {
+  const token = gapi.client.getToken();
+  if (token) {
+    google.accounts.oauth2.revoke(token.access_token);
+    gapi.client.setToken(null);
+    localStorage.removeItem('vault_goog_token');
+  }
+  driveFileId = null;
+  showDriveButtons(false);
+  setDriveStatus('', 'Google Drive 未接続');
+  showToast('ログアウトしました');
+}
+
+function openDriveSetup() {
+  document.getElementById('clientIdInput').value = clientId;
+  document.getElementById('driveSetupOverlay').classList.add('open');
+}
+
+function closeDriveSetup() {
+  document.getElementById('driveSetupOverlay').classList.remove('open');
+}
+
+function saveClientId() {
+  const val = document.getElementById('clientIdInput').value.trim();
+  if (!val || !val.includes('.apps.googleusercontent.com')) {
+    showToast('正しいクライアント ID を入力してください', true);
+    return;
+  }
+  clientId = val;
+  localStorage.setItem('vault_goog_client_id', clientId);
+  closeDriveSetup();
+  tokenClient = null;
+  initGis();
+  setTimeout(() => tokenClient && tokenClient.requestAccessToken({ prompt: 'consent' }), 300);
+}
+
+document.getElementById('driveSetupOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeDriveSetup();
+});
+
+// Load GAPI & GIS when scripts are ready
+window.addEventListener('load', () => {
+  if (typeof gapi !== 'undefined') initGapi();
+  else document.querySelector('script[src*="api.js"]').addEventListener('load', initGapi);
+
+  if (typeof google !== 'undefined' && google.accounts) initGis();
+  else document.querySelector('script[src*="gsi/client"]').addEventListener('load', initGis);
+
+  // Show setup button if no client ID
+  if (!clientId) {
+    document.getElementById('driveSetupBtn').style.display = '';
+  }
+});
+// ─────────────────────────────────────────────────────────────
+
+// Sample data for demo
+if (entries.length === 0) {
+  entries = [
+    { id: 'user@gmail.com', id_val: 'user@gmail.com', site: 'Google', url: 'https://google.com', pass: 'MyP@ssw0rd!', category: 'その他', note: 'メインアカウント', created: Date.now() },
+    { id: '@myhandle', id_val: '@myhandle', site: 'Twitter / X', url: 'https://twitter.com', pass: 'Tw1tterP@ss', category: 'SNS', note: '', created: Date.now() },
+    { id: 'user123456', id_val: 'user123456', site: '楽天銀行', url: 'https://www.rakuten-bank.co.jp', pass: 'Bank$ecure99', category: '銀行', note: '支店番号: 251', created: Date.now() },
+  ];
+  save();
+}
+
+render();
+
+// ── Service Worker（オフライン対応） ──────────────────────────
+if ('serviceWorker' in navigator) {
+  const swCode = `
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open('vault-v1').then(c => c.addAll(['./', './index.html'])));
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+});
+`;
+  const blob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl).catch(() => {});
+}
+// ─────────────────────────────────────────────────────────────
+
+</script>
+</body>
+</html>
