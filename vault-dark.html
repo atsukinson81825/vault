@@ -287,7 +287,7 @@
     border-radius: 12px;
     padding: 16px 20px;
     display: grid;
-    grid-template-columns: 52px 1fr 24px;
+    grid-template-columns: 52px 1fr;
     gap: 14px;
     align-items: center;
     transition: all 0.2s;
@@ -1082,7 +1082,10 @@ function render() {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <div class="entry-site">${escHtml(e.site)}</div>
           <span class="tag ${tagClass}">${e.category}</span>
-          <button class="pin-btn" data-uid="${e.uid}" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;margin-left:auto;line-height:1;flex-shrink:0">${isPinned ? '⭐' : '☆'}</button>
+          <div style="display:flex;flex-direction:column;align-items:center;margin-left:auto;gap:2px;flex-shrink:0">
+            <button class="pin-btn" data-uid="${e.uid}" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1">${isPinned ? '⭐' : '☆'}</button>
+            <span style="font-size:12px;color:var(--text-muted);line-height:1">${isExpanded ? '▲' : '▼'}</span>
+          </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
           <span style="font-size:10px;color:var(--text-muted);font-family:'Nunito',sans-serif;letter-spacing:1px;min-width:18px;font-weight:700">ID</span>
@@ -1093,9 +1096,7 @@ function render() {
           <span style="font-family:'Nunito',monospace;font-size:14px;color:var(--text-muted);letter-spacing:2px;flex:1">••••••••</span>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--text-muted);font-size:18px;padding-left:4px">
-        ${isExpanded ? '▲' : '▼'}
-      </div>
+
       ${isExpanded ? `
       <div class="entry-expand open">
         <div class="expand-label">ID</div>
