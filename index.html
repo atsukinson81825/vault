@@ -907,7 +907,7 @@ function render() {
   }
 
   document.getElementById('entriesList').innerHTML = filtered.map(e => {
-    const visible = visiblePassIds.has(e.id);
+    const visible = visiblePassIds.has(e.uid);
     const tagClass = CATEGORY_TAGS[e.category] || 'tag-default';
     const passDisplay = visible ? e.pass : '••••••••';
 
@@ -922,18 +922,18 @@ function render() {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
           <span style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;letter-spacing:1px;min-width:18px">ID</span>
           <span class="entry-id" style="margin:0;flex:1">${escHtml(e.id)}</span>
-          <button class="copy-btn" onclick="copyId('${e.id}',this)">コピー</button>
+          <button class="copy-btn" onclick="copyId('${e.uid}',this)">コピー</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;letter-spacing:1px;min-width:18px">PW</span>
-          <span class="entry-pass${visible?' visible':''}" onclick="togglePass('${e.id}')" title="クリックで表示/非表示" style="flex:1">${passDisplay}</span>
-          <button class="copy-btn" onclick="copyPass('${e.id}',this)">コピー</button>
+          <span class="entry-pass${visible?' visible':''}" onclick="togglePass('${e.uid}')" title="クリックで表示/非表示" style="flex:1">${passDisplay}</span>
+          <button class="copy-btn" onclick="copyPass('${e.uid}',this)">コピー</button>
         </div>
         ${e.note ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">${escHtml(e.note)}</div>` : ''}
       </div>
       <div class="entry-actions">
-        <button class="copy-btn" onclick="editEntry('${e.id}')">編集</button>
-        <button class="btn btn-danger" onclick="deleteEntry('${e.id}')">削除</button>
+        <button class="copy-btn" onclick="editEntry('${e.uid}')">編集</button>
+        <button class="btn btn-danger" onclick="deleteEntry('${e.uid}')">削除</button>
       </div>
     </div>`;
   }).join('');
@@ -943,9 +943,9 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function togglePass(id) {
-  if (visiblePassIds.has(id)) visiblePassIds.delete(id);
-  else visiblePassIds.add(id);
+function togglePass(uid) {
+  if (visiblePassIds.has(uid)) visiblePassIds.delete(uid);
+  else visiblePassIds.add(uid);
   render();
 }
 
@@ -960,23 +960,23 @@ async function copyToClipboard(text, btn, label) {
   } catch { showToast('コピーに失敗しました'); }
 }
 
-function copyId(id, btn) {
-  const e = entries.find(x => x.id === id);
-  if (e) copyToClipboard(e.id, btn, 'ID');
+function copyId(uid, btn) {
+  const e = entries.find(x => x.uid === uid);
+  if (e) copyToClipboard(e.id_val || e.id, btn, 'ID');
 }
 
-function copyPass(id, btn) {
-  const e = entries.find(x => x.id === id);
+function copyPass(uid, btn) {
+  const e = entries.find(x => x.uid === uid);
   if (e) copyToClipboard(e.pass, btn, 'パスワード');
 }
 
-function openModal(id = null) {
-  editId = id;
+function openModal(uid = null) {
+  editId = uid;
   const overlay = document.getElementById('modalOverlay');
-  document.getElementById('modalTitle').textContent = id ? 'EDIT ENTRY' : 'NEW ENTRY';
+  document.getElementById('modalTitle').textContent = uid ? 'EDIT ENTRY ✏️' : 'NEW ENTRY ✨';
   
-  if (id) {
-    const e = entries.find(x => x.id === id);
+  if (uid) {
+    const e = entries.find(x => x.uid === uid);
     document.getElementById('fSite').value = e.site;
     document.getElementById('fUrl').value = e.url || '';
     document.getElementById('fId').value = e.id_val || e.id;
@@ -1020,12 +1020,13 @@ function saveEntry() {
   }
 
   if (editId) {
-    const idx = entries.findIndex(e => e.id === editId);
+    const idx = entries.findIndex(e => e.uid === editId);
     if (idx !== -1) {
       entries[idx] = { ...entries[idx], site, id_val, id: id_val, pass, url, category, note };
     }
   } else {
     entries.push({
+      uid: Date.now() + Math.random().toString(36).slice(2),
       id: id_val,
       id_val,
       site, pass, url, category, note,
@@ -1039,14 +1040,39 @@ function saveEntry() {
   showToast(editId ? '更新しました ✓' : '追加しました ✓');
 }
 
-function editEntry(id) {
-  openModal(id);
+function editEntry(uid) {
+  openModal(uid);
 }
 
-function deleteEntry(id) {
-  const e = entries.find(x => x.id === id);
-  if (!confirm(`「${e?.site}」を削除しますか？`)) return;
-  entries = entries.filter(x => x.id !== id);
+function deleteEntry(uid) {
+  const e = entries.find(x => x.uid === uid);
+  if (!e) return;
+  showDeleteConfirm(uid, e.site);
+}
+
+function showDeleteConfirm(uid, siteName) {
+  const existing = document.getElementById('deleteConfirmOverlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'deleteConfirmOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(244,114,182,0.15);backdrop-filter:blur(6px);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:#fff;border:2px solid #f0c8dd;border-radius:24px;padding:28px;max-width:320px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(244,114,182,0.2)">
+      <div style="font-size:40px;margin-bottom:12px">🗑️</div>
+      <div style="font-family:'Nunito',sans-serif;font-size:16px;font-weight:800;color:#4a2040;margin-bottom:8px">「${siteName}」を削除しますか？</div>
+      <div style="font-size:13px;color:#b07090;margin-bottom:24px;font-family:'Nunito',sans-serif">この操作は元に戻せません</div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button onclick="document.getElementById('deleteConfirmOverlay').remove()" style="background:white;border:2px solid #f0c8dd;color:#b07090;border-radius:50px;padding:10px 22px;font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;cursor:pointer">キャンセル</button>
+        <button onclick="confirmDelete('${uid}')" style="background:linear-gradient(135deg,#fb7185,#f43f5e);border:none;color:white;border-radius:50px;padding:10px 22px;font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;cursor:pointer">削除する</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function confirmDelete(uid) {
+  const overlay = document.getElementById('deleteConfirmOverlay');
+  if (overlay) overlay.remove();
+  entries = entries.filter(x => x.uid !== uid);
   save();
   render();
   showToast('削除しました');
@@ -1111,13 +1137,15 @@ function showDriveButtons(connected) {
   document.getElementById('driveSignOutBtn').style.display = connected ? '' : 'none';
 }
 
-// Override save() to also sync
+// Override save() to also sync — safe version
 const _origSave = save;
 function save() {
   _origSave();
-  if (gapiReady && gisReady && gapi.client.getToken()) {
-    scheduleDriveSync();
-  }
+  try {
+    if (gapiReady && gisReady && typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken()) {
+      scheduleDriveSync();
+    }
+  } catch(e) { /* Drive not ready yet, skip sync */ }
 }
 
 function scheduleDriveSync() {
@@ -1318,27 +1346,30 @@ document.getElementById('driveSetupOverlay').addEventListener('click', function(
   if (e.target === this) closeDriveSetup();
 });
 
-// Load GAPI & GIS when scripts are ready
+// Load GAPI & GIS — fully wrapped so errors never crash the app
 window.addEventListener('load', () => {
-  if (typeof gapi !== 'undefined') initGapi();
-  else document.querySelector('script[src*="api.js"]').addEventListener('load', initGapi);
+  try {
+    if (!clientId) {
+      document.getElementById('driveSetupBtn').style.display = '';
+    }
+    const tryInitGapi = () => { try { initGapi(); } catch(e) { console.warn('GAPI skip:', e); } };
+    const tryInitGis  = () => { try { initGis();  } catch(e) { console.warn('GIS skip:',  e); } };
 
-  if (typeof google !== 'undefined' && google.accounts) initGis();
-  else document.querySelector('script[src*="gsi/client"]').addEventListener('load', initGis);
+    if (typeof gapi !== 'undefined') tryInitGapi();
+    else { const s = document.querySelector('script[src*="api.js"]'); if (s) s.addEventListener('load', tryInitGapi); }
 
-  // Show setup button if no client ID
-  if (!clientId) {
-    document.getElementById('driveSetupBtn').style.display = '';
-  }
+    if (typeof google !== 'undefined' && google.accounts) tryInitGis();
+    else { const s = document.querySelector('script[src*="gsi/client"]'); if (s) s.addEventListener('load', tryInitGis); }
+  } catch(e) { console.warn('Drive setup skipped:', e); }
 });
 // ─────────────────────────────────────────────────────────────
 
 // Sample data for demo
 if (entries.length === 0) {
   entries = [
-    { id: 'user@gmail.com', id_val: 'user@gmail.com', site: 'Google', url: 'https://google.com', pass: 'MyP@ssw0rd!', category: 'その他', note: 'メインアカウント', created: Date.now() },
-    { id: '@myhandle', id_val: '@myhandle', site: 'Twitter / X', url: 'https://twitter.com', pass: 'Tw1tterP@ss', category: 'SNS', note: '', created: Date.now() },
-    { id: 'user123456', id_val: 'user123456', site: '楽天銀行', url: 'https://www.rakuten-bank.co.jp', pass: 'Bank$ecure99', category: '銀行', note: '支店番号: 251', created: Date.now() },
+    { uid: 'sample1', id: 'user@gmail.com', id_val: 'user@gmail.com', site: 'Google', url: 'https://google.com', pass: 'MyP@ssw0rd!', category: 'その他', note: 'メインアカウント', created: Date.now() },
+    { uid: 'sample2', id: '@myhandle', id_val: '@myhandle', site: 'Twitter / X', url: 'https://twitter.com', pass: 'Tw1tterP@ss', category: 'SNS', note: '', created: Date.now() },
+    { uid: 'sample3', id: 'user123456', id_val: 'user123456', site: '楽天銀行', url: 'https://www.rakuten-bank.co.jp', pass: 'Bank$ecure99', category: '銀行', note: '支店番号: 251', created: Date.now() },
   ];
   save();
 }
